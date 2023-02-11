@@ -8,9 +8,9 @@ sys.setrecursionlimit(1500)
 
 
 # PARAMETERS
-degreeSearch_ = 120 # degrees
+degreeSearch_ = 130 # degrees
 _degreeSearchRad_ = degreeSearch_ * np.pi / 180
-searchRadius_ = 3
+searchRadius_ = 4
 sideSearchX_ = 1
 sideSearchY_ = 2.5
 
@@ -19,8 +19,10 @@ def main():
 
 
     # Import a map of cones or build one
-    plt.axis([-15, 40, -70, 80])
+    test = plt.axis([-15, 40, -70, 80])
     plt.grid()
+    ax = plt.gca()
+    ax.set_aspect('equal', adjustable='box')
     #conesPos = plt.ginput(-1,-1)
     #plt.plot([x[0] for x in conesPos], [x[1] for x in conesPos], 'bo')
     
@@ -30,7 +32,13 @@ def main():
 
     trueConesPos = np.zeros((0, 2))
     # Import a map of cones from a file
-    with open('hairpins_increasing_difficulty.csv', newline='') as csvfile:
+    fileName = np.zeros((4), dtype='object')
+    fileName[0] = 'hairpins_increasing_difficulty.csv'
+    fileName[1] = 'comp_2021.csv'
+    fileName[2] = 'fseast_2022.csv'
+    fileName[3] = 'vargarda.csv'
+
+    with open(fileName[0], newline='') as csvfile:
         coneReader = csv.reader(csvfile, delimiter=',', quotechar='|')
         skipFirstRowAndSecondRow = 2
         for row in coneReader:
@@ -72,7 +80,7 @@ def main():
 
     # TODO: Parallelize left and right side
     # Find the left side line of the track
-
+    print('- - - - - - - - - - - - - - - - - - LEFT - - - - - - - - - - - - - - - - - -')
     startConeIndex = startConeIndexLeft
     print('startConeIndex = ', startConeIndex)
     print('conesPos[startConeIndex,:] = ', conesPos[startConeIndex,:])
@@ -81,6 +89,7 @@ def main():
     sideLineIndexLeft = np.append(startConeIndex, sideLineIndexLeft)
     #print('sideLineIndex = ', sideLineIndex)
 
+    print('- - - - - - - - - - - - - - - - - - RIGHT - - - - - - - - - - - - - - - - - -')
     # Find the right side line of the track
     startConeIndex = startConeIndexRight
     print('startConeIndex = ', startConeIndex)
@@ -90,7 +99,6 @@ def main():
     sideLineIndexRight = np.append(startConeIndex, sideLineIndexRight)
     #print('sideLineIndex = ', sideLineIndex)
         
-
     plt.show()
 
     plt.figure()
@@ -190,21 +198,29 @@ def drawSideConesFinder(carPos, carDirection, side):
 
 
 
-
-# TODO: Seams to be a bug where some cones are not found in the FOV
+# TODO: Remove the previousCone from the list of cones
+# FIXED TODO: Seams to be a bug where some cones are not found in the FOV
 #       Think this only happens when we go above some amount of cones 
 #       CONCLUSION: Think that the polygon sometimes has the startCone in it
 #                   and sometimes not. Think this is a bug in the contains_points function
 # TODO: Maybe change this to a iterative function instead of recursive
 # Probebly add a pointer to bestPathIndex in C++ to make it easier
-def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
+def findSideLine(conesPos, startCone, previousCone, bestPathIndex = [], alreadyUsedCones = []):
     # Find the side line given the cones and a start cone (Recusive function)
     
     print('- - - - - - - - - - - - - - findSideLine - - - - - - - - - - - - - -')
+
+
     # Find the current cone
     print('startCone = ', startCone)
     currentConeIndex = np.argmin(np.linalg.norm(conesPos[:,:] - startCone, axis=1))
     print('currentConeIndex = ', currentConeIndex)
+
+    if currentConeIndex in alreadyUsedCones:
+        print('currentConeIndex = ', currentConeIndex)
+        print('alreadyUsedCones = ', alreadyUsedCones)
+        print('currentConeIndex is already used')
+        return
 
     # Calculate the angle from the previous cone to the current cone
     angle = 0
@@ -242,7 +258,7 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
         print('currentConeIndex not in listOfValidConesIndex')
         print('------------------------------------------------------------------------------')
 
-    print('listOfValidConesIndex = ', listOfValidConesIndex)      
+    print('listOfValidConesIndex = ', listOfValidConesIndex)
 
     # If the startCone was the only cone in the FOV, return
     if listOfValidConesIndex.size == 0:
@@ -256,8 +272,10 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
 
     # Find the side line
     previousCone = startCone
-    #conesPos = np.delete(conesPos, listOfValidConesIndex[closestConeIndex], axis=0)
-    bestSideLineIndexRet = findSideLine(conesPos, closestCone, previousCone, bestPathIndex)
+    alreadyUsedCones = np.append(alreadyUsedCones, currentConeIndex)
+    plt.plot(conesPos[currentConeIndex,0], conesPos[currentConeIndex,1], 'go')
+
+    bestSideLineIndexRet = findSideLine(conesPos, closestCone, previousCone, bestPathIndex, alreadyUsedCones)
 
     bestSideLineIndex = np.append(listOfValidConesIndex[closestConeIndex], bestSideLineIndexRet)
 
