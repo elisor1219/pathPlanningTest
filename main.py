@@ -10,8 +10,8 @@ sys.setrecursionlimit(1500)
 # PARAMETERS
 degreeSearch_ = 130 # degrees
 _degreeSearchRad_ = degreeSearch_ * np.pi / 180
-searchRadius_ = 4
-sideSearchX_ = 1
+searchRadius_ = 5
+sideSearchX_ = 2.5
 sideSearchY_ = 2.5
 
 def main():
@@ -38,7 +38,7 @@ def main():
     fileName[2] = 'fseast_2022.csv'
     fileName[3] = 'vargarda.csv'
 
-    with open(fileName[0], newline='') as csvfile:
+    with open(fileName[3], newline='') as csvfile:
         coneReader = csv.reader(csvfile, delimiter=',', quotechar='|')
         skipFirstRowAndSecondRow = 2
         for row in coneReader:
@@ -131,6 +131,10 @@ def findStartCone(conesPos, carPos, searchPolygon):
     listOfValidConesIndex = np.where(inOrOnPolygon == True)[0]
     print('list of cones inside the FOV = ', listOfValidConesIndex)
 
+    if listOfValidConesIndex.size == 0:
+        print('ERROR: No cone found in findStartCone')
+        return -1
+
     # Get the closest cone
     closestLocalConeIndex = np.argmin(np.linalg.norm(conesPos[listOfValidConesIndex,:] - carPos, axis=1))
     print('closestConeIndex = ', closestLocalConeIndex)
@@ -205,6 +209,9 @@ def drawSideConesFinder(carPos, carDirection, side):
 #                   and sometimes not. Think this is a bug in the contains_points function
 # TODO: Maybe change this to a iterative function instead of recursive
 # Probebly add a pointer to bestPathIndex in C++ to make it easier
+# TODO: Add if statement to check for multiple cones in the same FOV and weigh the angle
+#       to the distance to the cone. This should remove the problem where it is hard to
+#       find the cone in a hairpin turn
 def findSideLine(conesPos, startCone, previousCone, bestPathIndex = [], alreadyUsedCones = []):
     # Find the side line given the cones and a start cone (Recusive function)
     
