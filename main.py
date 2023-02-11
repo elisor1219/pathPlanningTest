@@ -1,52 +1,194 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.path as mpltPath
+import csv
+import sys
+sys.setrecursionlimit(1500)
+
 
 
 # PARAMETERS
 degreeSearch_ = 120 # degrees
 _degreeSearchRad_ = degreeSearch_ * np.pi / 180
 searchRadius_ = 3
+sideSearchX_ = 1
+sideSearchY_ = 2.5
 
 def main():
 
 
 
     # Import a map of cones or build one
-    plt.axis([-10, 10, -10, 10])
+    plt.axis([-15, 40, -70, 80])
     plt.grid()
-    conesPos = plt.ginput(-1,-1)
-    plt.plot([x[0] for x in conesPos], [x[1] for x in conesPos], 'bo')
+    #conesPos = plt.ginput(-1,-1)
+    #plt.plot([x[0] for x in conesPos], [x[1] for x in conesPos], 'bo')
+    
+    carPos = np.array([0.0, 0.0])
+    carDirection = 0.0
+
+
+    trueConesPos = np.zeros((0, 2))
+    # Import a map of cones from a file
+    with open('hairpins_increasing_difficulty.csv', newline='') as csvfile:
+        coneReader = csv.reader(csvfile, delimiter=',', quotechar='|')
+        skipFirstRowAndSecondRow = 2
+        for row in coneReader:
+            if skipFirstRowAndSecondRow > 0:
+                if skipFirstRowAndSecondRow == 1:
+                    carPos[0] = float(row[1])
+                    carPos[1] = float(row[2])
+                    carDirection = float(row[3])
+                skipFirstRowAndSecondRow -= 1
+                continue
+            xPosTrue = float(row[1])
+            yPosTrue = float(row[2])
+            trueConesPos = np.append(trueConesPos, [[xPosTrue, yPosTrue]], axis=0)
+            #print('xPosTrue = ', xPosTrue, ' yPosTrue = ', yPosTrue)
+    #print('conesPos = ', conesPos)
+    #print('trueConesPos = ', trueConesPos)
+
+    conesPos = trueConesPos
 
     # Convert to numpy array
     conesPos = np.array(conesPos)
 
-    # TODO: Find start cone right and left
+    print('conesPos = ', conesPos)
+
+    # Plot the cones
+    plt.plot([x[0] for x in conesPos], [x[1] for x in conesPos], 'bo')
+
+    # Plot the car
+    #carDirection is probably in radians
+    carRectangle = drawCar(carPos, carDirection)
+    sideConesFinderLeft = drawSideConesFinder(carPos, 1.2, side = 'left')
+    sideConesFinderRight = drawSideConesFinder(carPos, 1.2, side = 'right')
+
+    # Find the start cones
+    startConeIndexLeft = findStartCone(conesPos, carPos, sideConesFinderLeft)
+    print('startConeIndexLeft = ', startConeIndexLeft)
+    startConeIndexRight = findStartCone(conesPos, carPos, sideConesFinderRight)
+    print('startConeIndexRight = ', startConeIndexRight)
+
     # TODO: Parallelize left and right side
-    startConeIndex = np.where(conesPos == conesPos[0,:])[0][0]
-    sideLineIndex = findSideLine(conesPos, conesPos[startConeIndex,:], previousCone = conesPos[startConeIndex,:])
-    sideLineIndex = np.delete(sideLineIndex, -1) # type: ignore
-    sideLineIndex = np.append(startConeIndex, sideLineIndex)
-    print('sideLineIndex = ', sideLineIndex)
-    #for cone in conesPos:
-    #    temp = drawLineOfSight(cone, 0)
-    #    plt.plot(temp[:,0], temp[:,1], 'r-')
-    #    temp2 = mpltPath.Path(temp)
-    #    testCone = np.array([cone])
-    #    #print(temp2.contains_points(testCone))
+    # Find the left side line of the track
+
+    startConeIndex = startConeIndexLeft
+    print('startConeIndex = ', startConeIndex)
+    print('conesPos[startConeIndex,:] = ', conesPos[startConeIndex,:])
+    sideLineIndexLeft = findSideLine(conesPos, conesPos[startConeIndex,:], previousCone = conesPos[startConeIndex,:])
+    sideLineIndexLeft = np.delete(sideLineIndexLeft, -1) # type: ignore
+    sideLineIndexLeft = np.append(startConeIndex, sideLineIndexLeft)
+    #print('sideLineIndex = ', sideLineIndex)
+
+    # Find the right side line of the track
+    startConeIndex = startConeIndexRight
+    print('startConeIndex = ', startConeIndex)
+    print('conesPos[startConeIndex,:] = ', conesPos[startConeIndex,:])
+    sideLineIndexRight = findSideLine(conesPos, conesPos[startConeIndex,:], previousCone = conesPos[startConeIndex,:])
+    sideLineIndexRight = np.delete(sideLineIndexRight, -1) # type: ignore
+    sideLineIndexRight = np.append(startConeIndex, sideLineIndexRight)
+    #print('sideLineIndex = ', sideLineIndex)
         
 
     plt.show()
 
     plt.figure()
-    plt.axis([-10, 10, -10, 10])
+    plt.axis([-15, 40, -70, 80])
     plt.grid()
     plt.plot([x[0] for x in conesPos], [x[1] for x in conesPos], 'bo')
-    sideLine = np.zeros((sideLineIndex.size, 2))
-    for inx, val in enumerate(sideLineIndex):
+
+    # Plot the left side line
+    sideLine = np.zeros((sideLineIndexLeft.size, 2))
+    for inx, val in enumerate(sideLineIndexLeft):
         sideLine[inx,:] = conesPos[val,:]
     plt.plot([x[0] for x in sideLine], [x[1] for x in sideLine], 'b--')
+
+    # Plot the right side line
+    sideLine = np.zeros((sideLineIndexRight.size, 2))
+    for inx, val in enumerate(sideLineIndexRight):
+        sideLine[inx,:] = conesPos[val,:]
+    plt.plot([x[0] for x in sideLine], [x[1] for x in sideLine], 'y--')
+
     plt.show()
+
+#TODO: What to do if there is no cone on the side
+def findStartCone(conesPos, carPos, searchPolygon):
+    # Find the start cone
+
+    # Test if there is a cone in polynomial
+    polygon = mpltPath.Path(searchPolygon)
+    inOrOnPolygon = polygon.contains_points(conesPos)
+    inOrOnPolygon = np.array(inOrOnPolygon)
+    listOfValidConesIndex = np.where(inOrOnPolygon == True)[0]
+    print('list of cones inside the FOV = ', listOfValidConesIndex)
+
+    # Get the closest cone
+    closestLocalConeIndex = np.argmin(np.linalg.norm(conesPos[listOfValidConesIndex,:] - carPos, axis=1))
+    print('closestConeIndex = ', closestLocalConeIndex)
+
+    return listOfValidConesIndex[closestLocalConeIndex]
+
+    
+
+
+#TODO: Fix rotation
+def drawCar(carPos, carDirection):
+    # Draw a car given a position and a direction
+    print('carDirection = ', carDirection)
+    carLength = 1.525
+    carWidth = 0.9
+
+    # Make a rectangel with the car dimensions
+    carRectangle = np.array([[carPos[0] - carLength/2, carPos[1] - carWidth/2],
+                                [carPos[0] - carLength/2, carPos[1] + carWidth/2],
+                                [carPos[0] + carLength/2, carPos[1] + carWidth/2],
+                                [carPos[0] + carLength/2, carPos[1] - carWidth/2],
+                                [carPos[0] - carLength/2, carPos[1] - carWidth/2]])
+
+    # Rotate the rectangle
+    #carRectangle = carRectangle - carPos
+    #carRectangle = np.matmul(carRectangle, np.array([[np.cos(carDirection), -np.sin(carDirection)],
+    #                                                [np.sin(carDirection), np.cos(carDirection)]]))
+    #carRectangle = carRectangle + carPos
+
+    # Plot the rectangle
+    plt.plot(carRectangle[:,0], carRectangle[:,1], 'r-')
+    plt.plot(carPos[0], carPos[1], 'r*')
+
+    return carRectangle
+
+#TODO: Fix rotation
+def drawSideConesFinder(carPos, carDirection, side):
+    # Draw the side cones finder
+    sideRectangle = np.zeros((5, 2))
+    if side == 'left':
+        sideRectangle = np.array([[carPos[0], carPos[1]],
+                                    [carPos[0] + sideSearchX_, carPos[1]],
+                                    [carPos[0] + sideSearchX_, carPos[1] + sideSearchY_],
+                                    [carPos[0], carPos[1] + sideSearchY_],
+                                    [carPos[0], carPos[1]]])
+    elif side == 'right':
+        sideRectangle = np.array([[carPos[0], carPos[1]],
+                                    [carPos[0] + sideSearchX_, carPos[1]],
+                                    [carPos[0] + sideSearchX_, carPos[1] - sideSearchY_],
+                                    [carPos[0], carPos[1] - sideSearchY_],
+                                    [carPos[0], carPos[1]]])
+
+    # Rotate the rectangle
+    #sideRectangle = sideRectangle - carPos
+    #sideRectangle = np.matmul(sideRectangle, np.array([[np.cos(carDirection), -np.sin(carDirection)],
+    #                                                [np.sin(carDirection), np.cos(carDirection)]]))
+    #sideRectangle = sideRectangle + carPos
+
+    # Plot the rectangle
+    plt.plot(sideRectangle[:,0], sideRectangle[:,1], 'g-')
+
+    return sideRectangle
+
+
+
+
 
 
 # TODO: Seams to be a bug where some cones are not found in the FOV
@@ -60,6 +202,7 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
     
     print('- - - - - - - - - - - - - - findSideLine - - - - - - - - - - - - - -')
     # Find the current cone
+    print('startCone = ', startCone)
     currentConeIndex = np.argmin(np.linalg.norm(conesPos[:,:] - startCone, axis=1))
     print('currentConeIndex = ', currentConeIndex)
 
@@ -101,6 +244,11 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
 
     print('listOfValidConesIndex = ', listOfValidConesIndex)      
 
+    # If the startCone was the only cone in the FOV, return
+    if listOfValidConesIndex.size == 0:
+        print('Only the startCone in the FOV')
+        return
+
     # Find the closest cone
     closestConeIndex = np.argmin(np.linalg.norm(conesPos[listOfValidConesIndex,:] - startCone, axis=1))
     closestCone = conesPos[listOfValidConesIndex[closestConeIndex],:]
@@ -108,6 +256,7 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
 
     # Find the side line
     previousCone = startCone
+    #conesPos = np.delete(conesPos, listOfValidConesIndex[closestConeIndex], axis=0)
     bestSideLineIndexRet = findSideLine(conesPos, closestCone, previousCone, bestPathIndex)
 
     bestSideLineIndex = np.append(listOfValidConesIndex[closestConeIndex], bestSideLineIndexRet)
