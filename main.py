@@ -22,6 +22,7 @@ def main():
     conesPos = np.array(conesPos)
 
     # TODO: Find start cone right and left
+    # TODO: Parallelize left and right side
     startConeIndex = np.where(conesPos == conesPos[0,:])[0][0]
     sideLineIndex = findSideLine(conesPos, conesPos[startConeIndex,:], previousCone = conesPos[startConeIndex,:])
     sideLineIndex = np.delete(sideLineIndex, -1) # type: ignore
