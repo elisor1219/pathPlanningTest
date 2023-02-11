@@ -59,6 +59,9 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
     # Find the side line given the cones and a start cone (Recusive function)
     
     print('- - - - - - - - - - - - - - findSideLine - - - - - - - - - - - - - -')
+    # Find the current cone
+    currentConeIndex = np.argmin(np.linalg.norm(conesPos[:,:] - startCone, axis=1))
+    print('currentConeIndex = ', currentConeIndex)
 
     # Calculate the angle from the previous cone to the current cone
     angle = 0
@@ -79,21 +82,24 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
     listOfValidConesIndex = np.where(inOrOnPolygon == True)[0]
     print('list of cones inside the FOV = ', listOfValidConesIndex)
 
-    # If there is only one cone in the FOV, return the cone
-    # This is the startCone
-    if listOfValidConesIndex.size == 1:
-        print('Only one cone in FOV')
+    # If there is cone in the FOV, return
+    if listOfValidConesIndex.size == 0:
+        print('No cone in the FOV')
         return
 
     # If there is more than one cone in the FOV, find the closest cone
-    # The closest cone is the startCone, so remove it from the list
-    closestConeIndex = np.argmin(np.linalg.norm(conesPos[listOfValidConesIndex,:] - startCone, axis=1))
-    closestCone = conesPos[listOfValidConesIndex[closestConeIndex],:]
-    print('closestCone = ', closestCone, ' at index ', listOfValidConesIndex[closestConeIndex])
 
-    # Remove the start cone from the list
-    listOfValidConesIndex = np.delete(listOfValidConesIndex, closestConeIndex)
-    print('listOfValidConesIndex = ', listOfValidConesIndex)
+    # If the startCone is in the list, remove it
+    currentConeIndexLocal = np.where(listOfValidConesIndex == currentConeIndex)[0]
+    print('currentConeIndexLocal = ', currentConeIndexLocal)
+    if currentConeIndexLocal.size > 0:
+        print('currentConeIndex in listOfValidConesIndex')
+        listOfValidConesIndex = np.delete(listOfValidConesIndex, currentConeIndexLocal)  
+    else:
+        print('currentConeIndex not in listOfValidConesIndex')
+        print('------------------------------------------------------------------------------')
+
+    print('listOfValidConesIndex = ', listOfValidConesIndex)      
 
     # Find the closest cone
     closestConeIndex = np.argmin(np.linalg.norm(conesPos[listOfValidConesIndex,:] - startCone, axis=1))
@@ -109,28 +115,8 @@ def findSideLine(conesPos, startCone, previousCone, bestPathIndex = None):
 
     return bestSideLineIndex
     
-    ## Know that this works
-    ## Find the closest cone
-    #closestConeIndex = np.argmin(np.linalg.norm(conesPos[listOfValidConesIndex,:] - startCone, axis=1))
-    ## Remove the start cone from the list
-    #listOfValidConesIndex = np.delete(listOfValidConesIndex, closestConeIndex)
-    ## Find the closest cone
-    #closestConeIndex = np.argmin(np.linalg.norm(conesPos[listOfValidConesIndex,:] - startCone, axis=1))
-    ## Find the closest cone
-    #closestCone = conesPos[listOfValidConesIndex[closestConeIndex],:]
-    ## Draw the line of sight
-    #temp = drawLineOfSight(closestCone, 0)
-    #plt.plot(temp[:,0], temp[:,1], 'r-')
-    ## Find the side line
-    #findSideLine(conesPos, closestCone)
 
 
-    
-
-    # Find the side line
-
-
-    #return listOfValidConesIndex
 
 # turnAngleFromCar is the angle from the car, the car is always facing 0 degrees (maybe)
 def drawLineOfSight(conePos, turnAngleFromCar):
